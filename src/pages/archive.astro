@@ -1,0 +1,48 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PostCard from '../components/PostCard.astro';
+import { site } from '../config';
+import { getAllPosts, sortByYear } from '../lib/site';
+
+const posts = await getAllPosts();
+const groups = sortByYear(posts);
+const total = posts.length;
+const years = groups.length;
+---
+
+<BaseLayout title="归档" description={`${site.title} 的文章归档，按年份浏览。`}>
+  <div class="container">
+    <header class="page-head">
+      <p class="eyebrow">归档</p>
+      <h1 class="page-title">归档</h1>
+      <p class="page-desc">
+        共 {total} 篇文章，跨越 {years} 个年份。按时间从新到旧排列。
+      </p>
+    </header>
+
+    <div class="page-body">
+      {
+        total === 0 ? (
+          <div class="empty-state">
+            <p class="empty-state-title">归档还是空的</p>
+            <p>等第一篇笔记同步完成后，这里会按年份整理所有文章。</p>
+          </div>
+        ) : (
+          groups.map(([year, yearPosts]) => (
+            <section class="year-group">
+              <h2 class="year-heading">
+                {year}
+                <span class="year-count">{yearPosts.length} 篇</span>
+              </h2>
+              <ul class="post-list post-list--compact">
+                {yearPosts.map((post) => (
+                  <PostCard post={post} showExcerpt={false} showTags={false} />
+                ))}
+              </ul>
+            </section>
+          ))
+        )
+      }
+    </div>
+  </div>
+</BaseLayout>

@@ -1,0 +1,38 @@
+---
+/**
+ * 文章目录（Table of Contents）。
+ * 只展示 h2 / h3，数量不足两条时不渲染。
+ * 宽屏侧栏与窄屏折叠 details 复用本组件。
+ */
+interface TocHeading {
+  depth: number;
+  slug: string;
+  text: string;
+}
+
+interface Props {
+  headings: TocHeading[];
+  showTitle?: boolean;
+  label?: string;
+}
+
+const { headings, showTitle = true, label = '文章目录' } = Astro.props;
+const items = headings.filter((heading) => heading.depth === 2 || heading.depth === 3);
+---
+
+{
+  items.length > 1 && (
+    <nav class="toc" aria-label={label}>
+      {showTitle && <p class="toc-title">目录</p>}
+      <ol class="toc-list">
+        {items.map((heading) => (
+          <li class:list={['toc-item', `toc-depth-${heading.depth}`]}>
+            <a class="toc-link" href={`#${heading.slug}`}>
+              {heading.text}
+            </a>
+          </li>
+        ))}
+      </ol>
+    </nav>
+  )
+}

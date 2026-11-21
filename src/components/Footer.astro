@@ -1,0 +1,70 @@
+---
+import { site } from '../config';
+import { getAllPosts, getTags, withBase } from '../lib/site';
+
+const year = new Date().getFullYear();
+
+/** 与 Header 保持一致：没有任何标签时不显示「标签」入口 */
+const hasTags = getTags(await getAllPosts()).length > 0;
+const navItems = site.nav.filter((item) => item.href !== '/tags' || hasTags);
+
+const socials = site.socials.map((social) => {
+  const external = social.href.startsWith('http');
+  return {
+    label: social.label,
+    href: external ? social.href : withBase(social.href),
+    external,
+  };
+});
+---
+
+<footer class="site-footer">
+  <div class="container footer-grid">
+    <div class="footer-brand">
+      <a class="brand" href={withBase('/')} aria-label={`${site.title} 首页`}>
+        <span class="brand-mark" aria-hidden="true">{site.title.slice(0, 1)}</span>
+        <span class="brand-text">
+          <span class="brand-name">{site.title}</span>
+          <span class="brand-sub">NOTION GARDEN</span>
+        </span>
+      </a>
+      <p class="footer-desc">{site.description}</p>
+    </div>
+
+    <nav class="footer-col" aria-label="页脚导航">
+      <p class="footer-head">浏览</p>
+      <ul>
+        {navItems.map((item) => (
+          <li>
+            <a href={withBase(item.href)}>{item.label}</a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+
+    <div class="footer-col">
+      <p class="footer-head">订阅与联系</p>
+      <ul>
+        {
+          socials.map((social) => (
+            <li>
+              <a
+                href={social.href}
+                target={social.external ? '_blank' : undefined}
+                rel={social.external ? 'noopener noreferrer' : undefined}
+              >
+                {social.label}
+                <span aria-hidden="true">↗</span>
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </div>
+
+  <div class="container footer-bottom">
+    <p>© {year} {site.author.name}</p>
+    <p>由 Notion 写作 · Astro 构建 · GitHub Pages 托管</p>
+  </div>
+</footer>

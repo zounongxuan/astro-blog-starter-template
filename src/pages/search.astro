@@ -1,0 +1,24 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import SearchBox from '../components/SearchBox.astro';
+import { site } from '../config';
+import { getAllPosts } from '../lib/site';
+
+const posts = await getAllPosts();
+---
+
+<BaseLayout title="搜索" description={`在${site.title}中搜索标题、摘要、标签与正文。`} noindex>
+  <div class="container">
+    <header class="page-head">
+      <p class="eyebrow">搜索</p>
+      <h1 class="page-title">搜索全站</h1>
+      <p class="page-desc">
+        输入关键词，检索标题、摘要、标签与正文。按 <kbd>/</kbd> 可快速聚焦搜索框。
+      </p>
+    </header>
+
+    <div class="page-body">
+      <SearchBox total={posts.length} />
+    </div>
+  </div>
+</BaseLayout>

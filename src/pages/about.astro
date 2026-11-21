@@ -1,0 +1,120 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { site } from '../config';
+import { withBase } from '../lib/site';
+
+const socials = site.socials.map((social) => {
+  const external = social.href.startsWith('http');
+  return {
+    label: social.label,
+    href: external ? social.href : withBase(social.href),
+    external,
+  };
+});
+
+const stack = [
+  'Astro 5',
+  'TypeScript',
+  'Notion API',
+  'Markdown',
+  'remark / rehype',
+  'KaTeX',
+  'Shiki',
+  'GitHub Actions',
+  'GitHub Pages',
+];
+---
+
+<BaseLayout title="关于" description={`关于${site.title}：${site.tagline}`}>
+  <div class="container">
+    <header class="page-head">
+      <p class="eyebrow">关于</p>
+      <h1 class="page-title">关于这个站</h1>
+      <p class="page-desc">{site.tagline}</p>
+    </header>
+
+    <div class="page-body about-layout">
+      <div class="prose about-prose">
+        <h2>它是什么</h2>
+        <p>
+          这里是「{site.title}」，一座持续生长的个人数字花园。灵感碎片、阅读笔记、理论模型与长期思考
+          都被安放在这里，按时间沉淀，也按标签彼此连接。
+        </p>
+        <p>
+          我把写作当成一种整理：先捕捉，再连接，最后表达。这个站点就是「表达」那一层——它逼着我把
+          模糊的感觉压缩成清晰的句子。
+        </p>
+
+        <h2>它是怎么运转的</h2>
+        <p>本站内容来自 Notion，同步后自动发布。整条链路不需要我手动操作：</p>
+        <ul>
+          <li><strong>写作</strong>：在 Notion 里新建页面、打标签、写正文；</li>
+          <li><strong>同步</strong>：定时任务把 Notion 页面转换成 Markdown，提交回仓库；</li>
+          <li><strong>构建</strong>：Astro 把 Markdown 渲染成静态页面，自动生成标签、归档与 RSS；</li>
+          <li><strong>发布</strong>：GitHub Actions 构建并部署到 GitHub Pages。</li>
+        </ul>
+        <p>所以这里的每一页，最初都只是 Notion 里的一个空白页面。</p>
+
+        <h2>技术栈</h2>
+        <div class="stack-list">
+          {
+            stack.map((item) => (
+              <span class="stack-item">{item}</span>
+            ))
+          }
+        </div>
+        <p>
+          站点刻意保持轻量：没有前端框架运行时、没有外部字体与图标 CDN，只有静态 HTML、少量 CSS
+          与几段内联脚本。公式用 KaTeX 渲染，代码高亮用 Shiki 的双主题方案。
+        </p>
+
+        <h2>关于作者</h2>
+        <p>{site.author.bio}</p>
+        <p>
+          如果想聊聊文章里的某个想法，欢迎通过下面的方式找到我。也欢迎用 RSS
+          订阅，新文章会在发布后第一时间出现。
+        </p>
+      </div>
+
+      <aside class="about-aside" aria-label="作者与联系方式">
+        <section class="author-card">
+          <p class="eyebrow">作者</p>
+          <h2 class="author-name">{site.author.name}</h2>
+          <p class="author-bio">{site.author.bio}</p>
+
+          <ul class="contact-list">
+            {
+              site.author.email && (
+                <li>
+                  <span class="contact-label">邮箱</span>
+                  <a href={`mailto:${site.author.email}`}>{site.author.email}</a>
+                </li>
+              )
+            }
+            {
+              socials.map((social) => (
+                <li>
+                  <span class="contact-label">{social.label}</span>
+                  <a
+                    href={social.href}
+                    target={social.external ? '_blank' : undefined}
+                    rel={social.external ? 'noopener noreferrer' : undefined}
+                  >
+                    {social.label === 'RSS' ? '订阅本站' : social.href.replace(/^https?:\/\//, '')}
+                    <span aria-hidden="true">↗</span>
+                  </a>
+                </li>
+              ))
+            }
+          </ul>
+
+          <p class="author-note">本站内容来自 Notion，同步后自动发布。</p>
+
+          <a class="panel-link" href={withBase('/posts')}>
+            开始阅读 <span aria-hidden="true">→</span>
+          </a>
+        </section>
+      </aside>
+    </div>
+  </div>
+</BaseLayout>

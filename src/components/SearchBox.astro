@@ -1,0 +1,255 @@
+---
+import { withBase } from '../lib/site';
+
+/**
+ * 站内搜索：客户端 fetch /search-index.json，防抖过滤、关键词高亮、
+ * 结果计数、无结果态、URL ?q= 同步、键盘 "/" 聚焦。
+ * 索引由 src/pages/search-index.json.ts 在构建时生成，url 字段已包含部署子路径。
+ */
+interface Props {
+  total: number;
+  indexUrl?: string;
+}
+
+const { total, indexUrl = withBase('/search-index.json') } = Astro.props;
+---
+
+<div class="search-box" id="search-box" data-index-url={indexUrl} data-total={String(total)}>
+  <div class="search-field">
+    <svg
+      class="search-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.6"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="m20 20-4.2-4.2" />
+    </svg>
+    <input
+      id="search-input"
+      class="search-input"
+      type="search"
+      placeholder="搜索标题、摘要、标签或正文…"
+      autocomplete="off"
+      spellcheck="false"
+      aria-label="搜索站内文章"
+      aria-describedby="search-status"
+    />
+    <kbd class="search-kbd" aria-hidden="true">/</kbd>
+  </div>
+
+  <p class="search-status" id="search-status" role="status" aria-live="polite">
+    正在加载搜索索引…
+  </p>
+
+  <noscript>
+    <p class="search-noscript">
+      站内搜索需要 JavaScript。你可以直接浏览 <a href={withBase('/posts')}>全部文章</a>，或使用浏览器自带的页面搜索。
+    </p>
+  </noscript>
+
+  <ul class="post-list search-results" id="search-results"></ul>
+
+  <div class="empty-state search-empty" id="search-empty" hidden>
+    <p class="empty-state-title">没有找到相关文章</p>
+    <p>
+      换一个关键词试试，或者浏览 <a href={withBase('/posts')}>全部文章</a>。
+    </p>
+  </div>
+</div>
+
+<script>
+  interface SearchIndexItem {
+    title: string;
+    description: string;
+    tags: string[];
+    category: string;
+    date: string;
+    url: string;
+    body: string;
+  }
+
+  const ENTITIES: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  };
+
+  const escapeHtml = (value: string) =>
+    value.replace(/[&<>"']/g, (character) => ENTITIES[character] ?? character);
+
+  const dateFormatter = new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+
+  const formatDate = (value: string) => {
+    if (!value) return '';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? '' : dateFormatter.format(date);
+  };
+
+  const root = document.getElementById('search-box');
+  const input = document.getElementById('search-input') as HTMLInputElement | null;
+  const status = document.getElementById('search-status');
+  const resultsEl = document.getElementById('search-results');
+  const emptyEl = document.getElementById('search-empty');
+
+  if (root && input) {
+    const indexUrl = root.dataset.indexUrl ?? '';
+    const total = Number(root.dataset.total ?? '0');
+    const pageUrl = new URL(window.location.href);
+
+    let items: SearchIndexItem[] = [];
+    let timer: number | undefined;
+
+    const highlight = (text: string, query: string) => {
+      if (!query) return escapeHtml(text);
+      const lowerText = text.toLowerCase();
+      const lowerQuery = query.toLowerCase();
+      let cursor = 0;
+      let output = '';
+      let hit = lowerText.indexOf(lowerQuery, cursor);
+
+      while (hit !== -1) {
+        output += escapeHtml(text.slice(cursor, hit));
+        output += `<mark class="hl">${escapeHtml(text.slice(hit, hit + query.length))}</mark>`;
+        cursor = hit + query.length;
+        hit = lowerText.indexOf(lowerQuery, cursor);
+      }
+
+      output += escapeHtml(text.slice(cursor));
+      return output;
+    };
+
+    const makeSnippet = (item: SearchIndexItem, query: string) => {
+      const source = item.description || item.body;
+      if (!query) return source.length > 150 ? `${source.slice(0, 150)}…` : source;
+
+      const hit = source.toLowerCase().indexOf(query.toLowerCase());
+      if (hit === -1) return source.length > 150 ? `${source.slice(0, 150)}…` : source;
+
+      const start = Math.max(0, hit - 48);
+      const end = Math.min(source.length, hit + query.length + 90);
+      return `${start > 0 ? '…' : ''}${source.slice(start, end)}${end < source.length ? '…' : ''}`;
+    };
+
+    const scoreItem = (item: SearchIndexItem, query: string) => {
+      const needle = query.toLowerCase();
+      let score = 0;
+      if (item.title.toLowerCase().includes(needle)) score += 6;
+      if (item.tags.some((tag) => tag.toLowerCase().includes(needle))) score += 4;
+      if (item.category.toLowerCase().includes(needle)) score += 3;
+      if (item.description.toLowerCase().includes(needle)) score += 2;
+      if (item.body.toLowerCase().includes(needle)) score += 1;
+      return score;
+    };
+
+    const setUrlQuery = (query: string) => {
+      const url = new URL(pageUrl.href);
+      if (query.trim()) url.searchParams.set('q', query.trim());
+      else url.searchParams.delete('q');
+      window.history.replaceState(null, '', url.href);
+    };
+
+    const render = (rawQuery: string) => {
+      const query = rawQuery.trim();
+
+      let matched: SearchIndexItem[];
+      if (!query) {
+        matched = items.slice(0, 30);
+      } else {
+        matched = items
+          .map((item) => ({ item, score: scoreItem(item, query) }))
+          .filter((entry) => entry.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 30)
+          .map((entry) => entry.item);
+      }
+
+      if (resultsEl) {
+        resultsEl.innerHTML = matched
+          .map((item) => {
+            const tags = (item.tags ?? [])
+              .slice(0, 3)
+              .map((tag) => `<span class="tag-pill">${escapeHtml(tag)}</span>`)
+              .join('');
+            const date = formatDate(item.date);
+
+            return `<li class="post-list-item"><a class="post-row search-row" href="${escapeHtml(item.url)}">
+              <span class="post-row-date">${escapeHtml(date)}</span>
+              <span class="post-row-main">
+                <span class="post-row-title">${highlight(item.title, query)}</span>
+                <span class="post-row-excerpt">${highlight(makeSnippet(item, query), query)}</span>
+                ${tags ? `<span class="post-row-tags">${tags}</span>` : ''}
+              </span>
+              <span class="post-row-arrow" aria-hidden="true">→</span>
+            </a></li>`;
+          })
+          .join('');
+      }
+
+      if (emptyEl) emptyEl.hidden = matched.length > 0;
+
+      if (status) {
+        if (!query) {
+          status.innerHTML = `共 <strong>${total}</strong> 篇文章 · 输入关键词开始搜索`;
+        } else if (matched.length === 0) {
+          status.innerHTML = `没有找到与 “<strong>${escapeHtml(query)}</strong>” 相关的文章`;
+        } else {
+          status.innerHTML = `找到 <strong>${matched.length}</strong> 篇文章`;
+        }
+      }
+    };
+
+    const load = async () => {
+      try {
+        const response = await fetch(indexUrl);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data: unknown = await response.json();
+        items = Array.isArray(data) ? (data as SearchIndexItem[]) : [];
+        render(input.value);
+      } catch {
+        if (status) status.textContent = '搜索索引加载失败，请刷新页面再试。';
+      }
+    };
+
+    const initial = new URLSearchParams(window.location.search).get('q') ?? '';
+    if (initial) input.value = initial;
+
+    input.addEventListener('input', () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        render(input.value);
+        setUrlQuery(input.value);
+      }, 140);
+    });
+
+    document.addEventListener('keydown', (event) => {
+      const target = event.target as HTMLElement | null;
+      const editable =
+        target instanceof HTMLElement &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+
+      if (event.key === '/' && !editable) {
+        event.preventDefault();
+        input.focus();
+        input.select();
+      }
+
+      if (event.key === 'Escape' && document.activeElement === input) {
+        input.blur();
+      }
+    });
+
+    load();
+  }
+</script>

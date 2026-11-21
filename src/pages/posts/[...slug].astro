@@ -1,0 +1,216 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import ReadingProgress from '../../components/ReadingProgress.astro';
+import TableOfContents from '../../components/TableOfContents.astro';
+import TagPill from '../../components/TagPill.astro';
+import { render } from 'astro:content';
+import { site } from '../../config';
+import type { Post } from '../../lib/site';
+import {
+  excerpt,
+  getAllPosts,
+  isoDate,
+  neighbors,
+  postHref,
+  readingTime,
+  tagHref,
+  withBase,
+  formatDate,
+} from '../../lib/site';
+
+export async function getStaticPaths() {
+  const posts = await getAllPosts();
+  return posts.map((post) => ({
+    params: { slug: post.id },
+    props: { post },
+  }));
+}
+
+interface Props {
+  post: Post;
+}
+
+const { post } = Astro.props;
+const { Content, headings } = await render(post);
+
+const allPosts = await getAllPosts();
+const { newer, older } = neighbors(allPosts, post);
+
+const tags = post.data.tags ?? [];
+const minutes = readingTime(post.body);
+const rawDate = post.data.date ?? post.data.updated;
+const displayDate = formatDate(rawDate);
+const updatedDate = post.data.updated ? formatDate(post.data.updated) : '';
+const description = (post.data.description ?? '').trim() || excerpt(post, 160);
+
+const cover = (post.data.cover ?? '').trim();
+const coverUrl = cover ? (cover.startsWith('/') ? withBase(cover) : cover) : '';
+
+const notionUrl = post.data.notionUrl;
+const showNotion = site.showNotionLink && Boolean(notionUrl);
+
+const toc = headings.filter((heading) => heading.depth === 2 || heading.depth === 3);
+const hasToc = toc.length > 1;
+
+const siteUrl = Astro.site ?? new URL('https://example.github.io');
+const canonicalUrl = new URL(Astro.url.pathname, siteUrl).toString();
+const imageUrl = coverUrl ? new URL(coverUrl, siteUrl).toString() : undefined;
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'BlogPosting',
+  headline: post.data.title,
+  description,
+  datePublished: isoDate(post.data.date ?? post.data.updated) || undefined,
+  dateModified: isoDate(post.data.updated ?? post.data.date) || undefined,
+  author: {
+    '@type': 'Person',
+    name: site.author.name,
+  },
+  publisher: {
+    '@type': 'Organization',
+    name: site.title,
+  },
+  mainEntityOfPage: {
+    '@type': 'WebPage',
+    '@id': canonicalUrl,
+  },
+  inLanguage: site.locale,
+  keywords: tags.length > 0 ? tags.join(', ') : undefined,
+  ...(imageUrl ? { image: imageUrl } : {}),
+};
+---
+
+<BaseLayout
+  title={post.data.title}
+  description={description}
+  type="article"
+  article={{
+    publishedTime: isoDate(post.data.date ?? post.data.updated),
+    modifiedTime: isoDate(post.data.updated ?? post.data.date),
+    tags,
+  }}
+>
+  <script
+    type="application/ld+json"
+    slot="head"
+    is:inline
+    set:html={JSON.stringify(jsonLd)}
+  />
+  <ReadingProgress />
+
+  <article class="article">
+    <div class:list={['article-layout', 'container', { 'article-layout--bare': !hasToc }]}>
+      <div class="article-col">
+        <header class="article-head">
+          <div class="article-kicker">
+            {post.data.category && <span class="article-category">{post.data.category}</span>}
+            {
+              tags.length > 0 && (
+                <div class="tag-row">
+                  {tags.map((tag) => (
+                    <TagPill name={tag} href={tagHref(tag)} />
+                  ))}
+                </div>
+              )
+            }
+          </div>
+
+          <h1 class="article-title">{post.data.title}</h1>
+
+          {
+            (post.data.description ?? '').trim() && (
+              <p class="article-standfirst">{post.data.description}</p>
+            )
+          }
+
+          <p class="article-meta">
+            {displayDate && <time datetime={isoDate(rawDate)}>{displayDate}</time>}
+            <span>阅读约 {minutes} 分钟</span>
+            {updatedDate && <span>更新于 {updatedDate}</span>}
+            {
+              showNotion && notionUrl && (
+                <a class="notion-link" href={notionUrl} target="_blank" rel="noopener noreferrer">
+                  在 Notion 中查看 <span aria-hidden="true">↗</span>
+                </a>
+              )
+            }
+          </p>
+        </header>
+
+        {
+          coverUrl && (
+            <figure class="article-cover">
+              <img src={coverUrl} alt={`${post.data.title} 的封面图`} loading="eager" decoding="async" />
+            </figure>
+          )
+        }
+
+        {
+          hasToc && (
+            <details class="toc-fold">
+              <summary>文章目录</summary>
+              <TableOfContents headings={toc} showTitle={false} label="文章目录（折叠）" />
+            </details>
+          )
+        }
+
+        <div class="prose">
+          <Content />
+        </div>
+
+        <footer class="article-foot">
+          <div class="article-foot-tags">
+            <p class="eyebrow">标签</p>
+            <div class="tag-cloud">
+              {
+                tags.length > 0 ? (
+                  tags.map((tag) => <TagPill name={tag} href={tagHref(tag)} />)
+                ) : (
+                  <span class="article-foot-empty">暂无标签</span>
+                )
+              }
+            </div>
+          </div>
+          <div class="article-foot-links">
+            <a class="panel-link" href={withBase('/rss.xml')}>
+              RSS 订阅 <span aria-hidden="true">↗</span>
+            </a>
+            <a class="back-top" href="#top">返回顶部 <span aria-hidden="true">↑</span></a>
+          </div>
+        </footer>
+
+        <nav class="post-nav" aria-label="上一篇与下一篇">
+          {
+            newer ? (
+              <a class="post-nav-link prev" href={postHref(newer)}>
+                <span class="post-nav-label">← 上一篇</span>
+                <span class="post-nav-title">{newer.data.title}</span>
+              </a>
+            ) : (
+              <span></span>
+            )
+          }
+          {
+            older ? (
+              <a class="post-nav-link next" href={postHref(older)}>
+                <span class="post-nav-label">下一篇 →</span>
+                <span class="post-nav-title">{older.data.title}</span>
+              </a>
+            ) : (
+              <span></span>
+            )
+          }
+        </nav>
+      </div>
+
+      {
+        hasToc && (
+          <aside class="article-rail" aria-label="文章目录">
+            <TableOfContents headings={toc} />
+          </aside>
+        )
+      }
+    </div>
+  </article>
+</BaseLayout>
