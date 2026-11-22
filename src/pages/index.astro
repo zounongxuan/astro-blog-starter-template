@@ -1,0 +1,108 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PostCard from '../components/PostCard.astro';
+import TagPill from '../components/TagPill.astro';
+import { site } from '../config';
+import { formatDate, getAllPosts, getTags, postDate, tagHref, withBase } from '../lib/site';
+
+const posts = await getAllPosts();
+const total = posts.length;
+/** 首页取最近 site.postsPerPage 篇（未做分页） */
+const recent = posts.slice(0, site.postsPerPage);
+const allTags = getTags(posts);
+const tags = allTags.slice(0, 12);
+const latest = posts[0] ? formatDate(postDate(posts[0])) : '';
+const brandGlyph = site.brandMark;
+---
+
+<BaseLayout description={site.description}>
+  <section class="hero container">
+    <span class="hero-watermark" aria-hidden="true">{brandGlyph}</span>
+    <div class="hero-inner">
+      <p class="hero-eyebrow fade-up">理论研究 · 持续更新</p>
+      <h1 class="hero-title fade-up">{site.title}</h1>
+      <p class="hero-tagline fade-up">{site.tagline}</p>
+      <p class="hero-meta fade-up">
+        <span>共 <span class="num">{total}</span> 篇</span>
+        <span class="meta-sep" aria-hidden="true"></span>
+        <span>{latest ? `最近更新 ${latest}` : '等待第一篇笔记'}</span>
+        {
+          allTags.length > 0 && (
+            <>
+              <span class="meta-sep" aria-hidden="true"></span>
+              <span>{allTags.length} 个标签</span>
+            </>
+          )
+        }
+      </p>
+    </div>
+  </section>
+
+  <div class="container home-grid">
+    <div class="home-main">
+      <section class="section">
+        <div class="section-head">
+          <h2 class="section-title">
+            最近更新
+            <span class="section-count">{recent.length} 篇</span>
+          </h2>
+          <a class="section-link" href={withBase('/posts')}>
+            查看全部文章 <span aria-hidden="true">→</span>
+          </a>
+        </div>
+
+        {
+          recent.length > 0 ? (
+            <ul class="post-list">
+              {recent.map((post) => (
+                <PostCard post={post} />
+              ))}
+            </ul>
+          ) : (
+            <div class="empty-state">
+              <p class="empty-state-title">还没有文章</p>
+              <p>等 Notion 同步完成后，这里会出现第一篇笔记。</p>
+            </div>
+          )
+        }
+      </section>
+    </div>
+
+    <aside class="home-aside" aria-label="站点信息">
+      <section class="panel">
+        <p class="eyebrow">关于这个站</p>
+        <h2 class="panel-title">一个持续生长的研究场</h2>
+        <p class="panel-desc">{site.description}</p>
+        <a class="panel-link" href={withBase('/about')}>
+          了解更多 <span aria-hidden="true">→</span>
+        </a>
+      </section>
+
+      {
+        tags.length > 0 && (
+          <section class="panel">
+            <p class="eyebrow">标签</p>
+            <div class="tag-cloud">
+              {tags.map((tag) => (
+                <TagPill name={tag.name} count={tag.count} href={tagHref(tag.name)} />
+              ))}
+            </div>
+            <a class="panel-link" href={withBase('/tags')}>
+              全部标签 <span aria-hidden="true">→</span>
+            </a>
+          </section>
+        )
+      }
+
+      <section class="panel panel--rss">
+        <p class="eyebrow">订阅</p>
+        <h2 class="panel-title">用 RSS 追踪更新</h2>
+        <p class="panel-desc">把新文章直接送进你的阅读器，不依赖任何平台算法。</p>
+        <a class="rss-link" href={withBase('/rss.xml')}>
+          <span class="rss-dot" aria-hidden="true"></span>
+          订阅 RSS <span aria-hidden="true">↗</span>
+        </a>
+      </section>
+    </aside>
+  </div>
+</BaseLayout>

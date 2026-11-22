@@ -1,0 +1,45 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PostCard from '../../components/PostCard.astro';
+import { site } from '../../config';
+import { getAllPosts, sortByYear } from '../../lib/site';
+
+const posts = await getAllPosts();
+const groups = sortByYear(posts);
+const total = posts.length;
+---
+
+<BaseLayout title="全部文章" description={`${site.title} 的全部文章，按年份从新到旧排列。`}>
+  <div class="container">
+    <header class="page-head">
+      <p class="eyebrow">文章</p>
+      <h1 class="page-title">全部文章</h1>
+      <p class="page-desc">共 {total} 篇文章，按年份从新到旧排列。</p>
+    </header>
+
+    <div class="page-body">
+      {
+        total === 0 ? (
+          <div class="empty-state">
+            <p class="empty-state-title">还没有文章</p>
+            <p>等 Notion 同步完成后，这里会出现第一篇文章。</p>
+          </div>
+        ) : (
+          groups.map(([year, yearPosts]) => (
+            <section class="year-group">
+              <h2 class="year-heading">
+                {year}
+                <span class="year-count">{yearPosts.length} 篇</span>
+              </h2>
+              <ul class="post-list">
+                {yearPosts.map((post) => (
+                  <PostCard post={post} />
+                ))}
+              </ul>
+            </section>
+          ))
+        )
+      }
+    </div>
+  </div>
+</BaseLayout>

@@ -1,0 +1,39 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import TagPill from '../../components/TagPill.astro';
+import { site } from '../../config';
+import { getAllPosts, getTags, tagHref } from '../../lib/site';
+
+const posts = await getAllPosts();
+const tags = getTags(posts);
+const tagged = posts.filter((post) => (post.data.tags ?? []).length > 0).length;
+---
+
+<BaseLayout title="标签" description={`${site.title} 的全部标签，共 ${tags.length} 个。`}>
+  <div class="container">
+    <header class="page-head">
+      <p class="eyebrow">标签</p>
+      <h1 class="page-title">标签</h1>
+      <p class="page-desc">
+        共 {tags.length} 个标签，覆盖 {tagged} 篇文章。点击标签查看对应文章。
+      </p>
+    </header>
+
+    <div class="page-body">
+      {
+        tags.length > 0 ? (
+          <div class="tag-cloud tag-cloud--lg">
+            {tags.map((tag) => (
+              <TagPill name={tag.name} count={tag.count} href={tagHref(tag.name)} />
+            ))}
+          </div>
+        ) : (
+          <div class="empty-state">
+            <p class="empty-state-title">还没有标签</p>
+            <p>文章同步后，Notion 里的标签会出现在这里。</p>
+          </div>
+        )
+      }
+    </div>
+  </div>
+</BaseLayout>

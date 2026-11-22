@@ -1,0 +1,48 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getCategories, getAllPosts, withBase } from '../../lib/site';
+
+const posts = await getAllPosts();
+const categories = getCategories(posts);
+
+const description =
+  categories.length > 0
+    ? `按书稿与主题归类的系列，共 ${categories.length} 个系列。`
+    : '按书稿与主题归类的系列。';
+---
+
+<BaseLayout title="系列" description={description}>
+  <div class="container">
+    <header class="page-head">
+      <p class="eyebrow">系列</p>
+      <h1 class="page-title">系列</h1>
+      <p class="page-desc">{description}</p>
+    </header>
+
+    <div class="page-body">
+      {
+        categories.length > 0 ? (
+          <ul class="series-grid">
+            {categories.map((category) => (
+              <li>
+                <a
+                  class="series-card"
+                  href={withBase(`/series/${encodeURIComponent(category.slug)}/`)}
+                >
+                  <span class="eyebrow">系列</span>
+                  <h2 class="series-card-title">{category.name}</h2>
+                  <p class="series-card-meta">{category.count} 篇</p>
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div class="empty-state">
+            <p class="empty-state-title">还没有系列</p>
+            <p>文章同步后，书稿与主题会自动归类到这里。</p>
+          </div>
+        )
+      }
+    </div>
+  </div>
+</BaseLayout>

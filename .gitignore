@@ -1,0 +1,29 @@
+# 依赖
+node_modules/
+.npm-cache/
+.npm-install.log
+
+# 构建产物
+dist/
+.astro/
+.output/
+
+# 本地环境变量（含 Notion token / GitHub token，绝不提交）
+.env
+.env.local
+.env.*.local
+
+# 视觉验收 / 临时脚本
+.tmp/
+
+# 同步缓存与清单
+.notion-cache/
+src/content/posts/.sync-manifest.json
+
+# 系统 / 编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.log

@@ -1,0 +1,21 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { withBase } from '../lib/site';
+---
+
+<BaseLayout title="页面不存在" description="你访问的页面不存在，可能已被移动或删除。" noindex>
+  <div class="container">
+    <section class="notfound">
+      <p class="notfound-code" aria-hidden="true">404</p>
+      <h1 class="notfound-title">这一页走丢了</h1>
+      <p class="notfound-desc">
+        你访问的页面不存在，可能已经被移动、重命名，或者从未存在过。
+      </p>
+      <div class="notfound-actions">
+        <a class="btn btn--primary" href={withBase('/')}>返回首页</a>
+        <a class="btn" href={withBase('/posts')}>浏览全部文章</a>
+        <a class="btn" href={withBase('/search')}>搜索站内</a>
+      </div>
+    </section>
+  </div>
+</BaseLayout>

@@ -1,0 +1,60 @@
+---
+import { site } from '../config';
+import { getAllPosts, getTags, withBase } from '../lib/site';
+import ThemeToggle from './ThemeToggle.astro';
+
+/** 没有标签时不显示「标签」入口（Notion 页面树模式可能没有任何标签） */
+const hasTags = getTags(await getAllPosts()).length > 0;
+const navItems = site.nav.filter((item) => item.href !== '/tags' || hasTags);
+
+/** 去掉 BASE_PATH 后得到站内路由，用于导航高亮（BASE_URL 可能带也可能不带尾斜杠） */
+const base = import.meta.env.BASE_URL;
+const basePrefix = base.endsWith('/') ? base : `${base}/`;
+const pathname = Astro.url.pathname;
+const rawRoute = pathname.startsWith(basePrefix) ? pathname.slice(basePrefix.length - 1) : pathname;
+const route = rawRoute.replace(/\/+$/, '') || '/';
+
+function isActive(href: string) {
+  if (href.startsWith('http')) return false;
+  if (href === '/') return route === '/';
+  return route === href || route.startsWith(`${href}/`);
+}
+
+function navHref(href: string) {
+  return href.startsWith('http') ? href : withBase(href);
+}
+
+const isExternal = (href: string) => href.startsWith('http');
+---
+
+<header class="site-header">
+  <div class="container header-inner">
+    <a class="brand" href={withBase('/')} aria-label={`${site.title} 首页`}>
+      <span class="brand-mark" aria-hidden="true">{site.brandMark}</span>
+      <span class="brand-text">
+        <span class="brand-name">{site.title}</span>
+        <span class="brand-sub">{site.brandSub}</span>
+      </span>
+    </a>
+
+    <nav class="site-nav" aria-label="主导航">
+      {
+        navItems.map((item) => (
+          <a
+            class:list={['nav-link', { active: isActive(item.href) }]}
+            href={navHref(item.href)}
+            target={isExternal(item.href) ? '_blank' : undefined}
+            rel={isExternal(item.href) ? 'noopener noreferrer' : undefined}
+            aria-current={isActive(item.href) ? 'page' : undefined}
+          >
+            {item.label}
+          </a>
+        ))
+      }
+    </nav>
+
+    <div class="header-actions">
+      <ThemeToggle />
+    </div>
+  </div>
+</header>

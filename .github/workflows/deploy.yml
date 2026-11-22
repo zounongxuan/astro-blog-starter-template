@@ -1,0 +1,129 @@
+name: 构建并部署网站
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # 每天 UTC 03:00（北京时间 11:00）自动从 Notion 拉取最新内容并重新部署
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: pages-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    name: 同步 Notion 并构建
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # 在 Settings → Secrets and variables → Actions 中配置；没配置则跳过同步步骤
+      NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+      NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+      NOTION_PAGE_ID: ${{ secrets.NOTION_PAGE_ID }}
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 配置 GitHub Pages
+        uses: actions/configure-pages@v5
+        with:
+          # 如果仓库还没启用 Pages，尝试自动启用（需要仓库有 Pages 权限）
+          enablement: true
+
+      - name: 计算站点地址与子路径
+        id: site
+        env:
+          SITE_URL_VAR: ${{ vars.SITE_URL }}
+          BASE_PATH_VAR: ${{ vars.BASE_PATH }}
+        run: |
+          # 1) 优先使用仓库 Variables（自定义域名 / 手动指定）
+          if [[ -n "$SITE_URL_VAR" ]]; then
+            echo "site-url=${SITE_URL_VAR%/}" >> "$GITHUB_OUTPUT"
+            if [[ -z "$BASE_PATH_VAR" || "$BASE_PATH_VAR" == "/" ]]; then
+              echo "base-path=/" >> "$GITHUB_OUTPUT"
+            else
+              echo "base-path=/${BASE_PATH_VAR#/}" >> "$GITHUB_OUTPUT"
+            fi
+            exit 0
+          fi
+
+          # 2) 仓库里有 public/CNAME 时，按自定义域名 + 根路径构建
+          if [[ -f public/CNAME ]]; then
+            CNAME_DOMAIN="$(tr -d '[:space:]' < public/CNAME)"
+            if [[ -n "$CNAME_DOMAIN" ]]; then
+              echo "site-url=https://${CNAME_DOMAIN}" >> "$GITHUB_OUTPUT"
+              echo "base-path=/" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+
+          # 3) 默认：GitHub Pages 项目页（/<仓库名> 子路径）
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+          if [[ "$REPO_NAME" == *.github.io ]]; then
+            echo "base-path=/" >> "$GITHUB_OUTPUT"
+            echo "site-url=https://${GITHUB_REPOSITORY_OWNER}.github.io" >> "$GITHUB_OUTPUT"
+          else
+            echo "base-path=/${REPO_NAME}" >> "$GITHUB_OUTPUT"
+            echo "site-url=https://${GITHUB_REPOSITORY_OWNER}.github.io/${REPO_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 从 Notion 同步内容
+        if: env.NOTION_TOKEN != ''
+        run: npm run sync
+
+      - name: 提交同步下来的内容
+        if: env.NOTION_TOKEN != ''
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A src/content
+          if [ -d public/notion-assets ]; then
+            git add -A public/notion-assets
+          fi
+          if git diff --cached --quiet; then
+            echo "内容无变化"
+          else
+            git commit -m "content: auto-sync from Notion"
+            git push
+          fi
+
+      - name: 构建静态站点
+        env:
+          SITE_URL: ${{ steps.site.outputs.site-url }}
+          BASE_PATH: ${{ steps.site.outputs.base-path }}
+          PUBLIC_CF_ANALYTICS_TOKEN: ${{ vars.CF_ANALYTICS_TOKEN }}
+        run: npm run build
+
+      - name: 上传构建产物
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    name: 发布到 GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 部署
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,29 @@
+---
+/**
+ * 标签胶囊。
+ * 传入 href 时渲染为链接（标签总览 / 标签页 / 文章头），
+ * 不传 href 时渲染为纯展示（文章列表行、搜索结果内，避免嵌套链接）。
+ */
+interface Props {
+  name: string;
+  href?: string;
+  /** 可选计数，用于标签云 */
+  count?: number;
+}
+
+const { name, href, count } = Astro.props;
+---
+
+{
+  href ? (
+    <a class="tag-pill" href={href}>
+      <span class="tag-pill-name">{name}</span>
+      {count !== undefined && <span class="tag-pill-count">{count}</span>}
+    </a>
+  ) : (
+    <span class="tag-pill">
+      <span class="tag-pill-name">{name}</span>
+      {count !== undefined && <span class="tag-pill-count">{count}</span>}
+    </span>
+  )
+}

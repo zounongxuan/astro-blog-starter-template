@@ -1,0 +1,127 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { site } from '../config';
+import { withBase } from '../lib/site';
+
+const socials = site.socials.map((social) => {
+  const external = social.href.startsWith('http');
+  return {
+    label: social.label,
+    href: external ? social.href : withBase(social.href),
+    external,
+  };
+});
+
+const stack = [
+  'Astro 5',
+  'TypeScript',
+  'Notion API',
+  'Markdown',
+  'remark / rehype',
+  'KaTeX',
+  'Shiki',
+  'GitHub Actions',
+  'GitHub Pages',
+];
+---
+
+<BaseLayout title="关于" description={`关于${site.title}：${site.tagline}`}>
+  <div class="container">
+    <header class="page-head">
+      <p class="eyebrow">关于</p>
+      <h1 class="page-title">关于这个站</h1>
+      <p class="page-desc">{site.tagline}</p>
+    </header>
+
+    <div class="page-body about-layout">
+      <div class="prose about-prose">
+        <h2>它是什么</h2>
+        <p>
+          这里是「{site.title}」—— skill-worth 的公开理论研究站。任务型社会、任务型劳动关系、平台用工与
+          技能资产的书稿、论文、研究框架和阶段性写作，都在这里持续公开。它也作为
+          <a href="https://skill-worth.com" target="_blank" rel="noopener noreferrer">skill-worth 主站</a>
+          的理论内容底座，主站的「概念理论」「文章视频」与这里的书稿互相引用。
+        </p>
+        <p>
+          研究从「谁在为你工作」这一现象出发，经过雇佣关系的解构、任务型生产关系的建构，走向制度补缺与
+          劳动保障的设计。这里记录的是这条研究路线上的不同阶段与不同表达：有的是完整章节，有的是正在
+          生长的论证。
+        </p>
+        <p>
+          文章按《任务型社会》《功能导向》《系统的代价》等书稿与主题归入不同系列，可以在
+          <a href={withBase('/series')}>系列</a> 中按线索连续阅读。
+        </p>
+
+        <h2>它是怎么运转的</h2>
+        <p>本站内容来自 Notion，同步后自动发布。整条链路不需要手动操作：</p>
+        <ul>
+          <li><strong>写作</strong>：在 Notion 里新建页面、写正文；</li>
+          <li><strong>同步</strong>：定时任务把 Notion 页面转换成 Markdown，提交回仓库；</li>
+          <li><strong>构建</strong>：Astro 把 Markdown 渲染成静态页面，自动生成系列、标签、归档与 RSS；</li>
+          <li><strong>发布</strong>：GitHub Actions 构建并部署到 GitHub Pages 与自定义域名。</li>
+        </ul>
+        <p>研究仍在进行，站点会随之持续生长。</p>
+
+        <h2>技术栈</h2>
+        <div class="stack-list">
+          {
+            stack.map((item) => (
+              <span class="stack-item">{item}</span>
+            ))
+          }
+        </div>
+        <p>
+          站点刻意保持轻量：没有前端框架运行时、没有外部字体与图标 CDN，只有静态 HTML、少量 CSS
+          与几段内联脚本。公式用 KaTeX 渲染，代码高亮用 Shiki 的双主题方案。
+        </p>
+
+        <h2>关于作者</h2>
+        <p>{site.author.bio}</p>
+        <p>
+          如果想聊聊文章里的某个想法，欢迎通过下面的方式找到我。也欢迎用 RSS
+          订阅，新文章会在发布后第一时间出现。
+        </p>
+      </div>
+
+      <aside class="about-aside" aria-label="作者与联系方式">
+        <section class="author-card">
+          <p class="eyebrow">作者</p>
+          <h2 class="author-name">{site.author.name}</h2>
+          <p class="author-bio">{site.author.bio}</p>
+
+          <ul class="contact-list">
+            {
+              site.author.email && (
+                <li>
+                  <span class="contact-label">邮箱</span>
+                  <a href={`mailto:${site.author.email}`}>{site.author.email}</a>
+                </li>
+              )
+            }
+            {
+              socials.map((social) => (
+                <li>
+                  <span class="contact-label">{social.label}</span>
+                  <a
+                    href={social.href}
+                    target={social.external ? '_blank' : undefined}
+                    rel={social.external ? 'noopener noreferrer' : undefined}
+                  >
+                    {social.label === 'RSS' ? '订阅本站' : social.href.replace(/^https?:\/\//, '')}
+                    <span aria-hidden="true">↗</span>
+                  </a>
+                </li>
+              ))
+            }
+          </ul>
+
+          <p class="author-note">本站内容来自 Notion，同步后自动发布。</p>
+
+          <a class="panel-link" href={withBase('/posts')}>
+            开始阅读 <span aria-hidden="true">→</span>
+          </a>
+        </section>
+      </aside>
+    </div>
+  </div>
+</BaseLayout>

@@ -1,0 +1,54 @@
+---
+import type { Post } from '../lib/site';
+import { excerpt, formatDate, isoDate, postHref } from '../lib/site';
+import TagPill from './TagPill.astro';
+
+/**
+ * 文章列表行：日期 / 标题 / 摘要 / 标签 / 箭头。
+ * 首页、全部文章、标签页、归档页共用。
+ */
+interface Props {
+  post: Post;
+  showExcerpt?: boolean;
+  showTags?: boolean;
+}
+
+const { post, showExcerpt = true, showTags = true } = Astro.props;
+const tags = post.data.tags ?? [];
+const rawDate = post.data.date ?? post.data.updated;
+const dateLabel = formatDate(rawDate, 'short');
+const dateTime = isoDate(rawDate);
+const summary = excerpt(post, 110);
+---
+
+<li class="post-list-item">
+  <a class="post-row" href={postHref(post)}>
+    {
+      dateLabel ? (
+        <time class="post-row-date" datetime={dateTime}>
+          {dateLabel}
+        </time>
+      ) : (
+        <span class="post-row-date" aria-hidden="true">
+          ———
+        </span>
+      )
+    }
+    <div class="post-row-main">
+      <h3 class="post-row-title">{post.data.title}</h3>
+      {showExcerpt && summary && <span class="post-row-excerpt">{summary}</span>}
+      {
+        showTags && tags.length > 0 && (
+          <span class="post-row-tags">
+            {tags.map((tag) => (
+              <TagPill name={tag} />
+            ))}
+          </span>
+        )
+      }
+    </div>
+    <span class="post-row-arrow" aria-hidden="true">
+      →
+    </span>
+  </a>
+</li>

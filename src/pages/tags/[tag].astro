@@ -1,0 +1,74 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PostCard from '../../components/PostCard.astro';
+import TagPill from '../../components/TagPill.astro';
+import { site } from '../../config';
+import type { Post } from '../../lib/site';
+import { getAllPosts, getTags, tagHref, tagSlug, withBase } from '../../lib/site';
+
+export async function getStaticPaths() {
+  const posts = await getAllPosts();
+  const tags = getTags(posts);
+
+  return tags.map((tag) => ({
+    params: { tag: tag.slug },
+    props: {
+      name: tag.name,
+      posts: posts.filter((post) =>
+        (post.data.tags ?? []).some((item) => tagSlug(item) === tag.slug)
+      ),
+    },
+  }));
+}
+
+interface Props {
+  name: string;
+  posts: Post[];
+}
+
+const { name, posts } = Astro.props;
+const allPosts = await getAllPosts();
+const otherTags = getTags(allPosts).filter((tag) => tag.name !== name);
+---
+
+<BaseLayout title={`标签：${name}`} description={`${site.title} 中带有「${name}」标签的全部文章。`}>
+  <div class="container">
+    <header class="page-head">
+      <p class="eyebrow">标签</p>
+      <h1 class="page-title">
+        <span class="tag-hash" aria-hidden="true">#</span>{name}
+      </h1>
+      <p class="page-desc">共 {posts.length} 篇与「{name}」相关的文章。</p>
+      <p class="page-meta">
+        <a class="section-link" href={withBase('/tags')}>
+          <span aria-hidden="true">←</span> 返回全部标签
+        </a>
+      </p>
+    </header>
+
+    <div class="page-body">
+      <ul class="post-list">
+        {
+          posts.map((post) => (
+            <PostCard post={post} />
+          ))
+        }
+      </ul>
+
+      {
+        otherTags.length > 0 && (
+          <section class="section">
+            <div class="section-head">
+              <h2 class="section-title">其它标签</h2>
+            </div>
+            <div class="tag-cloud">
+              {otherTags.map((tag) => (
+                <TagPill name={tag.name} count={tag.count} href={tagHref(tag.name)} />
+              ))}
+            </div>
+          </section>
+        )
+      }
+    </div>
+  </div>
+</BaseLayout>
